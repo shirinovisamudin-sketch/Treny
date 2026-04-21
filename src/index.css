@@ -1,0 +1,37 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary-50: hsl(var(--theme-h), var(--theme-s), 95%);
+  --color-primary-100: hsl(var(--theme-h), var(--theme-s), 90%);
+  --color-primary-200: hsl(var(--theme-h), var(--theme-s), 80%);
+  --color-primary-300: hsl(var(--theme-h), var(--theme-s), 70%);
+  --color-primary-400: hsl(var(--theme-h), var(--theme-s), 60%);
+  --color-primary-500: hsl(var(--theme-h), var(--theme-s), var(--theme-l));
+  --color-primary-600: hsl(var(--theme-h), var(--theme-s), calc(var(--theme-l) * 0.8));
+  --color-primary-700: hsl(var(--theme-h), var(--theme-s), calc(var(--theme-l) * 0.6));
+  --color-primary-800: hsl(var(--theme-h), var(--theme-s), calc(var(--theme-l) * 0.4));
+  --color-primary-900: hsl(var(--theme-h), var(--theme-s), calc(var(--theme-l) * 0.2));
+  --color-primary-950: hsl(var(--theme-h), var(--theme-s), calc(var(--theme-l) * 0.1));
+}
+
+input[type=range].custom-hue-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: white;
+  border: 2px solid #ccc;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+}
+
+input[type=range].custom-hue-slider::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: white;
+  border: 2px solid #ccc;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+}
