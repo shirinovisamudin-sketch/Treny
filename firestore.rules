@@ -24,15 +24,11 @@ service cloud.firestore {
       allow get: if true;
       allow list: if resource.data.totalReps >= 0;
       
-      allow create: if isSignedIn() 
-        && request.auth.uid == userId
-        && isValidId(userId)
+      allow create: if isValidId(userId)
         && isValidUserStats(incoming())
         && incoming().totalReps >= 0;
         
-      allow update: if isSignedIn()
-        && request.auth.uid == userId
-        && isValidUserStats(incoming())
+      allow update: if isValidUserStats(incoming())
         && incoming().diff(existing()).affectedKeys().hasOnly(['totalReps', 'lastWorkoutAt', 'displayName', 'photoURL'])
         && incoming().totalReps >= existing().totalReps;
     }

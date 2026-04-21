@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Play, Pause, RotateCcw, Check, Timer, Info, Trophy, Settings, Palette, User, LogIn, LogOut, Save } from 'lucide-react';
-import { auth, signInWithGoogle, logout, addRepsToLeaderboard } from './lib/firebase';
-import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
+import { Play, Pause, RotateCcw, Check, Timer, Info, Trophy, Settings, Palette, User, LogOut, Save } from 'lucide-react';
+import { addRepsToLeaderboard } from './lib/firebase';
 import { Leaderboard } from './components/Leaderboard';
 
 function ColorPickerField({ hsv, setHsv }: { hsv: {h:number, s:number, v:number}, setHsv: React.Dispatch<React.SetStateAction<{h:number, s:number, v:number}>>}) {
@@ -100,16 +99,36 @@ export default function App() {
   const settingsRef = useRef<HTMLDivElement>(null);
   const paletteRef = useRef<HTMLDivElement>(null);
 
-  const [user, setUser] = useState<FirebaseUser | null>(null);
+  const [localProfile, setLocalProfile] = useState<{id: string, name: string} | null>(null);
+  const [nameInput, setNameInput] = useState('');
   const [syncedRepsForSession, setSyncedRepsForSession] = useState(0);
   const [isSyncing, setIsSyncing] = useState(false);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (u) => {
-      setUser(u);
-    });
-    return () => unsubscribe();
+    const saved = localStorage.getItem('treny_profile');
+    if (saved) {
+      try {
+        setLocalProfile(JSON.parse(saved));
+      } catch (e) {
+        // ignore
+      }
+    }
   }, []);
+
+  const handleSaveName = () => {
+    if (!nameInput.trim()) return;
+    const newProfile = {
+      id: `usr_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 9)}`,
+      name: nameInput.trim()
+    };
+    localStorage.setItem('treny_profile', JSON.stringify(newProfile));
+    setLocalProfile(newProfile);
+  };
+
+  const handleLogoutName = () => {
+    localStorage.removeItem('treny_profile');
+    setLocalProfile(null);
+  };
 
   const rows = ['Верх ↑', 'Вниз ↓', 'Верх ↑', 'Вниз ↓'];
 
@@ -192,16 +211,14 @@ export default function App() {
   const timerProgress = totalTimerTime > 0 ? ((totalTimerTime - timeLeft) / totalTimerTime) * 100 : 0;
 
   const handleSyncToLeaderboard = async () => {
-    if (!user) {
-      await signInWithGoogle();
-      return;
-    }
+    if (!localProfile) return;
+    
     const repsToSync = currentReps - syncedRepsForSession;
     if (repsToSync <= 0) return;
     
     setIsSyncing(true);
     try {
-      await addRepsToLeaderboard(user.uid, repsToSync);
+      await addRepsToLeaderboard(localProfile.id, localProfile.name, repsToSync);
       setSyncedRepsForSession(currentReps);
     } catch (error) {
       console.error('Failed to sync', error);
@@ -552,36 +569,43 @@ export default function App() {
 
         {/* Auth & Sync Panel */}
         <div className={`p-4 md:p-6 ${getContainerStyles()} ${darkCardBg} border ${isDark ? 'border-neutral-700' : 'border-neutral-200'} flex flex-col md:flex-row items-center justify-between gap-4 mt-6`}>
-          {user ? (
+          {localProfile ? (
             <div className="flex items-center gap-3">
-              {user.photoURL ? (
-                <img src={user.photoURL} alt="avatar" className="w-10 h-10 rounded-full" referrerPolicy="no-referrer" />
-              ) : (
-                <div className="w-10 h-10 rounded-full bg-primary-100 text-primary-600 flex items-center justify-center">
-                  <User className="w-5 h-5" />
-                </div>
-              )}
-              <div>
-                <div className="font-bold">{user.displayName || 'Без имени'}</div>
-                <div className={`text-xs ${mutedTextClass}`}>{user.email}</div>
+              <div className="w-10 h-10 rounded-full bg-primary-100 text-primary-600 flex items-center justify-center font-bold text-lg">
+                {localProfile.name.charAt(0).toUpperCase()}
               </div>
-              <button onClick={() => logout()} className={`ml-2 sm:ml-4 p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors ${getButtonStyles()}`} aria-label="Выйти">
+              <div>
+                <div className="font-bold">{localProfile.name}</div>
+                <div className={`text-xs ${mutedTextClass}`}>Спортсмен</div>
+              </div>
+              <button onClick={handleLogoutName} className={`ml-2 sm:ml-4 p-2 text-neutral-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors ${getButtonStyles()}`} aria-label="Сменить имя">
                 <LogOut className="w-5 h-5" />
               </button>
             </div>
           ) : (
-            <div className="flex items-center justify-between md:justify-start gap-4 w-full md:w-auto">
+            <div className="flex flex-col md:flex-row items-center justify-between md:justify-start gap-4 w-full md:w-auto">
               <div>
                 <div className="font-bold">Общий рейтинг</div>
-                <div className={`text-xs ${mutedTextClass}`}>Войдите, чтобы сохранять прогресс</div>
+                <div className={`text-xs ${mutedTextClass}`}>Укажите имя для рейтинга:</div>
               </div>
-              <button onClick={() => signInWithGoogle()} className={`px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white font-medium flex items-center gap-2 ${getButtonStyles()}`}>
-                <LogIn className="w-5 h-5" /> <span className="hidden sm:inline">Войти через Google</span><span className="sm:hidden">Войти</span>
-              </button>
+              <div className="flex gap-2 w-full md:w-auto mt-2 md:mt-0">
+                <input
+                  type="text"
+                  placeholder="Ваше имя..."
+                  value={nameInput}
+                  onChange={(e) => setNameInput(e.target.value)}
+                  maxLength={20}
+                  className={`px-3 py-2 w-full md:w-48 outline-none focus:ring-2 focus:ring-primary-500 ${isDark ? 'bg-neutral-800 text-white border-neutral-600' : 'bg-neutral-50 text-neutral-900 border-neutral-200'} border ${getButtonStyles()}`}
+                  onKeyDown={(e) => e.key === 'Enter' && handleSaveName()}
+                />
+                <button onClick={handleSaveName} disabled={!nameInput.trim()} className={`px-4 py-2 bg-blue-500 hover:bg-blue-600 disabled:opacity-50 disabled:bg-neutral-400 text-white font-medium flex items-center gap-2 ${getButtonStyles()}`}>
+                  Вперед
+                </button>
+              </div>
             </div>
           )}
 
-          {user && (
+          {localProfile && (
             <button 
               onClick={handleSyncToLeaderboard}
               disabled={currentReps - syncedRepsForSession <= 0 || isSyncing}
