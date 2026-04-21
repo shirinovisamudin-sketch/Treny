@@ -21,7 +21,8 @@ service cloud.firestore {
     }
     
     match /users/{userId} {
-      allow read: if isSignedIn();
+      allow get: if true;
+      allow list: if resource.data.totalReps >= 0;
       
       allow create: if isSignedIn() 
         && request.auth.uid == userId

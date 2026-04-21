@@ -15,13 +15,18 @@ export function Leaderboard({ isDark, styleMode, getContainerStyles, getButtonSt
 
   useEffect(() => {
     const q = query(collection(db, 'users'), orderBy('totalReps', 'desc'), limit(10));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const topUsers = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as LeaderboardUser[];
-      setUsers(topUsers);
-    });
+    const unsubscribe = onSnapshot(q, 
+      (snapshot) => {
+        const topUsers = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        })) as LeaderboardUser[];
+        setUsers(topUsers);
+      },
+      (error) => {
+        console.error("Leaderboard Snapshot Error:", error);
+      }
+    );
 
     return () => unsubscribe();
   }, []);
