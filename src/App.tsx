@@ -1,5 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Play, Pause, RotateCcw, Check, Timer, Info, Trophy, Settings, Palette } from 'lucide-react';
+import { Play, Pause, RotateCcw, Check, Timer, Info, Trophy, Settings, Palette, User, LogIn, LogOut, Save } from 'lucide-react';
+import { auth, signInWithGoogle, logout, addRepsToLeaderboard } from './lib/firebase';
+import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
+import { Leaderboard } from './components/Leaderboard';
 
 function ColorPickerField({ hsv, setHsv }: { hsv: {h:number, s:number, v:number}, setHsv: React.Dispatch<React.SetStateAction<{h:number, s:number, v:number}>>}) {
   const svRef = useRef<HTMLDivElement>(null);
@@ -97,6 +100,17 @@ export default function App() {
   const settingsRef = useRef<HTMLDivElement>(null);
   const paletteRef = useRef<HTMLDivElement>(null);
 
+  const [user, setUser] = useState<FirebaseUser | null>(null);
+  const [syncedRepsForSession, setSyncedRepsForSession] = useState(0);
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (u) => {
+      setUser(u);
+    });
+    return () => unsubscribe();
+  }, []);
+
   const rows = ['Верх ↑', 'Вниз ↓', 'Верх ↑', 'Вниз ↓'];
 
   // Theme resolution
@@ -176,6 +190,25 @@ export default function App() {
   const isFinished = currentReps >= 192;
 
   const timerProgress = totalTimerTime > 0 ? ((totalTimerTime - timeLeft) / totalTimerTime) * 100 : 0;
+
+  const handleSyncToLeaderboard = async () => {
+    if (!user) {
+      await signInWithGoogle();
+      return;
+    }
+    const repsToSync = currentReps - syncedRepsForSession;
+    if (repsToSync <= 0) return;
+    
+    setIsSyncing(true);
+    try {
+      await addRepsToLeaderboard(user.uid, repsToSync);
+      setSyncedRepsForSession(currentReps);
+    } catch (error) {
+      console.error('Failed to sync', error);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   // -- Dynamic Styling Helpers (Manual Dark Mode Mapping for safety) --
 
@@ -516,6 +549,59 @@ export default function App() {
 
           </div>
         </div>
+
+        {/* Auth & Sync Panel */}
+        <div className={`p-4 md:p-6 ${getContainerStyles()} ${darkCardBg} border ${isDark ? 'border-neutral-700' : 'border-neutral-200'} flex flex-col md:flex-row items-center justify-between gap-4 mt-6`}>
+          {user ? (
+            <div className="flex items-center gap-3">
+              {user.photoURL ? (
+                <img src={user.photoURL} alt="avatar" className="w-10 h-10 rounded-full" referrerPolicy="no-referrer" />
+              ) : (
+                <div className="w-10 h-10 rounded-full bg-primary-100 text-primary-600 flex items-center justify-center">
+                  <User className="w-5 h-5" />
+                </div>
+              )}
+              <div>
+                <div className="font-bold">{user.displayName || 'Без имени'}</div>
+                <div className={`text-xs ${mutedTextClass}`}>{user.email}</div>
+              </div>
+              <button onClick={() => logout()} className={`ml-2 sm:ml-4 p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors ${getButtonStyles()}`} aria-label="Выйти">
+                <LogOut className="w-5 h-5" />
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center justify-between md:justify-start gap-4 w-full md:w-auto">
+              <div>
+                <div className="font-bold">Общий рейтинг</div>
+                <div className={`text-xs ${mutedTextClass}`}>Войдите, чтобы сохранять прогресс</div>
+              </div>
+              <button onClick={() => signInWithGoogle()} className={`px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white font-medium flex items-center gap-2 ${getButtonStyles()}`}>
+                <LogIn className="w-5 h-5" /> <span className="hidden sm:inline">Войти через Google</span><span className="sm:hidden">Войти</span>
+              </button>
+            </div>
+          )}
+
+          {user && (
+            <button 
+              onClick={handleSyncToLeaderboard}
+              disabled={currentReps - syncedRepsForSession <= 0 || isSyncing}
+              className={`w-full md:w-auto px-4 py-2 md:py-3 ${currentReps - syncedRepsForSession > 0 ? 'bg-primary-500 hover:bg-primary-600 text-white' : 'bg-neutral-200 dark:bg-neutral-800 text-neutral-400'} font-medium flex items-center justify-center gap-2 disabled:cursor-not-allowed transition-colors ${getButtonStyles()}`}
+            >
+              {isSyncing ? <div className="w-5 h-5 animate-spin rounded-full border-2 border-t-transparent border-current" /> : <Save className="w-5 h-5" />}
+              {currentReps - syncedRepsForSession > 0 ? `В рейтинг (+${currentReps - syncedRepsForSession} р.)` : 'Сохранено'}
+            </button>
+          )}
+        </div>
+
+        {/* Global Leaderboard ListView */}
+        <Leaderboard 
+          isDark={isDark} 
+          styleMode={styleMode} 
+          getContainerStyles={getContainerStyles} 
+          getButtonStyles={getButtonStyles} 
+          mutedTextClass={mutedTextClass} 
+        />
+
       </div>
     </div>
   );

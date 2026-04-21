@@ -1,0 +1,37 @@
+{
+  "entities": {
+    "UserStats": {
+      "title": "UserStats",
+      "description": "Statistics and profile for a user on the leaderboard",
+      "type": "object",
+      "properties": {
+        "displayName": {
+          "type": "string",
+          "description": "User's chosen or imported display name"
+        },
+        "totalReps": {
+          "type": "number",
+          "description": "Total number of repetitions completed"
+        },
+        "lastWorkoutAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp of the last completed workout"
+        },
+        "photoURL": {
+          "type": "string",
+          "description": "URL to the user's profile photo"
+        }
+      },
+      "required": ["displayName", "totalReps", "lastWorkoutAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": {
+        "$ref": "#/entities/UserStats"
+      },
+      "description": "Stores user profiles and their global leaderboard stats. The document ID represents the user's UID."
+    }
+  }
+}
