@@ -99,6 +99,7 @@ export default function App() {
   const settingsRef = useRef<HTMLDivElement>(null);
   const paletteRef = useRef<HTMLDivElement>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
+  const endTimeRef = useRef<number | null>(null);
 
   const [localProfile, setLocalProfile] = useState<{id: string, name: string} | null>(null);
   const [nameInput, setNameInput] = useState('');
@@ -220,18 +221,49 @@ export default function App() {
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
-    if (timerActive && timeLeft > 0) {
-      interval = setInterval(() => {
-        setTimeLeft((prev) => prev - 1);
-      }, 1000);
-    } else if (timerActive && timeLeft === 0) {
-      setTimerActive(false);
-      playTimerSound();
+
+    const tick = () => {
+      if (!timerActive || !endTimeRef.current) return;
+      const now = Date.now();
+      const remaining = Math.max(0, Math.ceil((endTimeRef.current - now) / 1000));
+      
+      setTimeLeft(remaining);
+
+      if (remaining === 0) {
+        setTimerActive(false);
+        endTimeRef.current = null;
+        playTimerSound();
+      }
+    };
+
+    if (timerActive) {
+      tick(); // Вызываем сразу на случай, если таймер был в фоне
+      interval = setInterval(tick, 500); // 500ms для большей отзывчивости
     }
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [timerActive, timeLeft]);
+  }, [timerActive]);
+
+  // Обработка возврата из фонового режима (помогает сразу перерисовать UI)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && timerActive && endTimeRef.current) {
+        const now = Date.now();
+        const remaining = Math.max(0, Math.ceil((endTimeRef.current - now) / 1000));
+        setTimeLeft(remaining);
+        
+        if (remaining === 0) {
+          setTimerActive(false);
+          endTimeRef.current = null;
+          playTimerSound();
+        }
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [timerActive]);
 
   const toggleCell = (rowIdx: number, colIdx: number) => {
     const newGrid = [...gridState];
@@ -245,12 +277,21 @@ export default function App() {
     setTimeLeft(seconds);
     setTotalTimerTime(seconds);
     setTimerActive(true);
+    endTimeRef.current = Date.now() + seconds * 1000;
   };
 
   const toggleTimer = () => {
     initAudioAndNotifications();
     if (timeLeft > 0) {
-      setTimerActive(!timerActive);
+      if (!timerActive) {
+        // Возобновляем: пересчитываем целевое время окончания
+        endTimeRef.current = Date.now() + timeLeft * 1000;
+        setTimerActive(true);
+      } else {
+        // Ставим на паузу
+        endTimeRef.current = null;
+        setTimerActive(false);
+      }
     }
   };
 
@@ -258,6 +299,7 @@ export default function App() {
     setTimerActive(false);
     setTimeLeft(0);
     setTotalTimerTime(0);
+    endTimeRef.current = null;
   };
 
   const formatTime = (seconds: number) => {
