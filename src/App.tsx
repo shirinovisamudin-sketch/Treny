@@ -98,6 +98,7 @@ export default function App() {
 
   const settingsRef = useRef<HTMLDivElement>(null);
   const paletteRef = useRef<HTMLDivElement>(null);
+  const audioCtxRef = useRef<AudioContext | null>(null);
 
   const [localProfile, setLocalProfile] = useState<{id: string, name: string} | null>(null);
   const [nameInput, setNameInput] = useState('');
@@ -159,13 +160,30 @@ export default function App() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  const initAudioAndNotifications = () => {
+    // 1. Инициализация AudioContext по клику пользователя (необходимо для мобильных Safari/Chrome)
+    if (!audioCtxRef.current) {
+      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+      if (AudioContextClass) {
+        audioCtxRef.current = new AudioContextClass();
+      }
+    }
+    if (audioCtxRef.current && audioCtxRef.current.state === 'suspended') {
+      audioCtxRef.current.resume();
+    }
+    
+    // 2. Запрос на отправку уведомлений
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+  };
+
   const playTimerSound = () => {
     try {
-      const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
-      if (!AudioContext) return;
-      const ctx = new AudioContext();
+      const ctx = audioCtxRef.current;
+      if (!ctx) return;
+      if (ctx.state === 'suspended') ctx.resume();
       
-      // Функция для одного короткого "пипа"
       const playBeep = (timeOffset: number, freq: number) => {
         const osc = ctx.createOscillator();
         const gainNode = ctx.createGain();
@@ -187,6 +205,14 @@ export default function App() {
       playBeep(0, 880);
       playBeep(0.2, 880);
       playBeep(0.4, 1046.50); // Последний звук чуть выше (нота До)
+
+      // Отправляем push-уведомление, если есть права
+      if ('Notification' in window && Notification.permission === 'granted') {
+        new Notification('Отдых окончен!', {
+          body: 'Пора приступить к следующему подходу.',
+          icon: '/favicon.ico'
+        });
+      }
     } catch (e) {
       console.error('Не удалось воспроизвести звук таймера', e);
     }
@@ -215,12 +241,14 @@ export default function App() {
   };
 
   const startTimer = (seconds: number) => {
+    initAudioAndNotifications();
     setTimeLeft(seconds);
     setTotalTimerTime(seconds);
     setTimerActive(true);
   };
 
   const toggleTimer = () => {
+    initAudioAndNotifications();
     if (timeLeft > 0) {
       setTimerActive(!timerActive);
     }
