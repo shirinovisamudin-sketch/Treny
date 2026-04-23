@@ -159,14 +159,48 @@ export default function App() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  const playTimerSound = () => {
+    try {
+      const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioContext) return;
+      const ctx = new AudioContext();
+      
+      // Функция для одного короткого "пипа"
+      const playBeep = (timeOffset: number, freq: number) => {
+        const osc = ctx.createOscillator();
+        const gainNode = ctx.createGain();
+        osc.connect(gainNode);
+        gainNode.connect(ctx.destination);
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, ctx.currentTime + timeOffset);
+        
+        gainNode.gain.setValueAtTime(0, ctx.currentTime + timeOffset);
+        // Увеличиваем пиковую громкость с 0.2 до 0.8
+        gainNode.gain.linearRampToValueAtTime(0.8, ctx.currentTime + timeOffset + 0.05);
+        gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + timeOffset + 0.4);
+        
+        osc.start(ctx.currentTime + timeOffset);
+        osc.stop(ctx.currentTime + timeOffset + 0.4);
+      };
+
+      // Проигрываем тройной сигнал (похоже на фитнес-таймер)
+      playBeep(0, 880);
+      playBeep(0.2, 880);
+      playBeep(0.4, 1046.50); // Последний звук чуть выше (нота До)
+    } catch (e) {
+      console.error('Не удалось воспроизвести звук таймера', e);
+    }
+  };
+
   useEffect(() => {
     let interval: NodeJS.Timeout;
     if (timerActive && timeLeft > 0) {
       interval = setInterval(() => {
         setTimeLeft((prev) => prev - 1);
       }, 1000);
-    } else if (timeLeft === 0) {
+    } else if (timerActive && timeLeft === 0) {
       setTimerActive(false);
+      playTimerSound();
     }
     return () => {
       if (interval) clearInterval(interval);
