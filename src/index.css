@@ -14,6 +14,69 @@
   --color-primary-950: hsl(var(--theme-h), var(--theme-s), calc(var(--theme-l) * 0.1));
 }
 
+@keyframes rgb-neon-glow {
+  0% {
+    box-shadow: 0 0 12px rgba(255, 0, 110, 0.75), inset 0 0 6px rgba(255, 0, 110, 0.35);
+    border-color: #ff006e !important;
+  }
+  33% {
+    box-shadow: 0 0 12px rgba(58, 12, 163, 0.75), inset 0 0 6px rgba(58, 12, 163, 0.35);
+    border-color: #3b82f6 !important;
+  }
+  66% {
+    box-shadow: 0 0 12px rgba(0, 245, 212, 0.75), inset 0 0 6px rgba(0, 245, 212, 0.35);
+    border-color: #10b981 !important;
+  }
+  100% {
+    box-shadow: 0 0 12px rgba(255, 0, 110, 0.75), inset 0 0 6px rgba(255, 0, 110, 0.35);
+    border-color: #ff006e !important;
+  }
+}
+
+@keyframes rainbow-shift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.rgb-neon-card {
+  animation: rgb-neon-glow 4s linear infinite !important;
+  transition: all 0.3s ease;
+}
+
+.rgb-neon-btn {
+  animation: rgb-neon-glow 4s linear infinite !important;
+  text-shadow: 0 0 3px currentColor;
+  transition: all 0.3s ease;
+}
+
+.rainbow-text {
+  background: linear-gradient(to right, #ff0055, #ffdd00, #00ff66, #3b82f6, #d946ef, #ff0055);
+  background-size: 300% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent !important;
+  animation: rainbow-shift 5s linear infinite;
+}
+
+.rainbow-bg {
+  background: linear-gradient(135deg, #ff0055, #ffdd00, #00ff66, #3b82f6, #d946ef, #ff0055) !important;
+  background-size: 300% 300% !important;
+  animation: rainbow-shift 6s ease infinite !important;
+  color: white !important;
+}
+
+.backlight-card {
+  box-shadow: 0 0 14px hsl(var(--theme-h), var(--theme-s), var(--theme-l), 0.7), inset 0 0 6px hsl(var(--theme-h), var(--theme-s), var(--theme-l), 0.3);
+  border-color: hsl(var(--theme-h), var(--theme-s), var(--theme-l)) !important;
+  transition: all 0.3s ease;
+}
+
+.backlight-btn {
+  box-shadow: 0 0 10px hsl(var(--theme-h), var(--theme-s), var(--theme-l), 0.6), inset 0 0 4px hsl(var(--theme-h), var(--theme-s), var(--theme-l), 0.25);
+  border-color: hsl(var(--theme-h), var(--theme-s), var(--theme-l)) !important;
+  transition: all 0.3s ease;
+}
+
 input[type=range].custom-hue-slider::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
@@ -35,3 +98,4 @@ input[type=range].custom-hue-slider::-moz-range-thumb {
   cursor: pointer;
   box-shadow: 0 1px 3px rgba(0,0,0,0.3);
 }
+

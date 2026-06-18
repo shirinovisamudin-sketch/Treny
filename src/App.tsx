@@ -85,16 +85,52 @@ export default function App() {
   const [timeLeft, setTimeLeft] = useState(0);
   const [totalTimerTime, setTotalTimerTime] = useState(0);
   const [timerActive, setTimerActive] = useState(false);
+  const [repsPerSet, setRepsPerSet] = useState<number>(12);
 
   // Settings State
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [theme, setTheme] = useState<'light' | 'dark' | 'system'>('system');
-  const [styleMode, setStyleMode] = useState<'adult' | 'kids' | 'retro'>('adult');
-  const [deviceType, setDeviceType] = useState<'computer' | 'tablet' | 'phone'>('computer');
+  const [styleMode, setStyleMode] = useState<'adult' | 'kids' | 'retro' | 'slime'>('adult');
+  const [deviceType, setDeviceType] = useState<'computer' | 'tablet' | 'phone'>('phone');
   const [resolvedTheme, setResolvedTheme] = useState<'light' | 'dark'>('light');
 
+  const [customRestSeconds, setCustomRestSeconds] = useState<number>(25);
+
   const [hsv, setHsv] = useState({ h: 24, s: 100, v: 100 }); // Default base color (orangeish)
+
+  const [isRgb, setIsRgb] = useState<boolean>(() => {
+    return localStorage.getItem('treny_is_rgb') === 'true';
+  });
+  const [isBacklight, setIsBacklight] = useState<boolean>(() => {
+    return localStorage.getItem('treny_is_backlight') === 'true';
+  });
+  const [isRainbow, setIsRainbow] = useState<boolean>(() => {
+    return localStorage.getItem('treny_is_rainbow') === 'true';
+  });
+
+  useEffect(() => {
+    localStorage.setItem('treny_is_rgb', isRgb ? 'true' : 'false');
+  }, [isRgb]);
+
+  useEffect(() => {
+    localStorage.setItem('treny_is_backlight', isBacklight ? 'true' : 'false');
+  }, [isBacklight]);
+
+  useEffect(() => {
+    localStorage.setItem('treny_is_rainbow', isRainbow ? 'true' : 'false');
+  }, [isRainbow]);
+
+  useEffect(() => {
+    if (!isRainbow) return;
+    const interval = setInterval(() => {
+      setHsv(prev => {
+        const nextH = (prev.h + 2) % 360;
+        return { ...prev, h: nextH };
+      });
+    }, 45);
+    return () => clearInterval(interval);
+  }, [isRainbow]);
 
   const settingsRef = useRef<HTMLDivElement>(null);
   const paletteRef = useRef<HTMLDivElement>(null);
@@ -105,6 +141,17 @@ export default function App() {
   const [nameInput, setNameInput] = useState('');
   const [syncedRepsForSession, setSyncedRepsForSession] = useState(0);
   const [isSyncing, setIsSyncing] = useState(false);
+
+  const [gameState, setGameState] = useState({
+    coins: 0,
+    unlockedReps: false,
+    unlockedRest: false,
+    unlockedMultipleSyncs: false,
+    syncsToday: 0,
+    lastSyncDate: new Date().toLocaleDateString('en-CA'),
+    completedReps: 0,
+    lastCoinDate: ''
+  });
 
   useEffect(() => {
     const saved = localStorage.getItem('treny_profile');
@@ -117,11 +164,44 @@ export default function App() {
     }
   }, []);
 
+  useEffect(() => {
+    const savedState = localStorage.getItem('treny_gamestate');
+    if (savedState) {
+      try {
+        const parsed = JSON.parse(savedState);
+        const today = new Date().toLocaleDateString('en-CA');
+        if (parsed.lastSyncDate !== today) {
+          parsed.syncsToday = 0;
+          parsed.lastSyncDate = today;
+        }
+        setGameState(prev => ({ ...prev, ...parsed }));
+      } catch (e) {}
+    }
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem('treny_gamestate', JSON.stringify(gameState));
+  }, [gameState]);
+
   const handleSaveName = () => {
-    if (!nameInput.trim()) return;
+    const trimmedName = nameInput.trim();
+    if (!trimmedName || trimmedName.length > 15) {
+      alert('Имя должно быть от 1 до 15 символов.');
+      return;
+    }
+    
+    const badRoots = ['хуй', 'пизд', 'еба', 'ебл', 'бля', 'сука', 'cyka', 'blyat', 'fuck', 'мудак', 'хер', 'шлюха', 'залуп', 'дроч', 'пидар', 'пидор', 'гандон', 'говно'];
+    const lowerName = trimmedName.toLowerCase().replace(/\s+/g, '');
+    for (const root of badRoots) {
+      if (lowerName.includes(root)) {
+        alert('Имя содержит недопустимые слова.');
+        return;
+      }
+    }
+
     const newProfile = {
       id: `usr_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 9)}`,
-      name: nameInput.trim()
+      name: trimmedName
     };
     localStorage.setItem('treny_profile', JSON.stringify(newProfile));
     setLocalProfile(newProfile);
@@ -132,7 +212,7 @@ export default function App() {
     setLocalProfile(null);
   };
 
-  const rows = ['Верх ↑', 'Вниз ↓', 'Верх ↑', 'Вниз ↓'];
+  const rows = ['Верх 🔼', 'Вниз 🔽', 'Верх 🔼', 'Вниз 🔽'];
 
   // Theme resolution
   useEffect(() => {
@@ -309,21 +389,60 @@ export default function App() {
   };
 
   const checkedCount = gridState.flat().filter(Boolean).length;
-  const currentReps = checkedCount * 12;
-  const isFinished = currentReps >= 192;
+  const currentRepsForUI = checkedCount * Math.max(6, repsPerSet);
+  const totalTargetReps = 16 * Math.max(6, repsPerSet);
+  const totalCurrentReps = gameState.completedReps + currentRepsForUI;
+  const isFinished = checkedCount === 16;
+  const repPercentage = totalTargetReps > 0 ? Math.round((currentRepsForUI / totalTargetReps) * 100) : 0;
 
   const timerProgress = totalTimerTime > 0 ? ((totalTimerTime - timeLeft) / totalTimerTime) * 100 : 0;
+
+  const handleFinishWorkout = () => {
+    const today = new Date().toLocaleDateString('en-CA');
+    const canGetCoins = gameState.lastCoinDate !== today;
+
+    setGameState(prev => ({
+      ...prev,
+      coins: prev.coins + (canGetCoins ? 5 : 0),
+      lastCoinDate: canGetCoins ? today : prev.lastCoinDate,
+      completedReps: prev.completedReps + totalTargetReps
+    }));
+    // Возвращаем сетку в начальное состояние
+    setGridState([
+      [false, false, false, false],
+      [false, false, false, false],
+      [false, false, false, false],
+      [false, false, false, false],
+    ]);
+  };
 
   const handleSyncToLeaderboard = async () => {
     if (!localProfile) return;
     
-    const repsToSync = currentReps - syncedRepsForSession;
+    const today = new Date().toLocaleDateString('en-CA');
+    let currentSyncs = gameState.syncsToday;
+    if (gameState.lastSyncDate !== today) {
+        currentSyncs = 0;
+    }
+    
+    const maxSyncs = gameState.unlockedMultipleSyncs ? 5 : 1;
+    if (currentSyncs >= maxSyncs) {
+        alert(`Лимит синхронизаций на сегодня исчерпан (${maxSyncs} из ${maxSyncs}).\nВы можете купить расширение лимитов за монеты.`);
+        return;
+    }
+
+    const repsToSync = totalCurrentReps - syncedRepsForSession;
     if (repsToSync <= 0) return;
     
     setIsSyncing(true);
     try {
       await addRepsToLeaderboard(localProfile.id, localProfile.name, repsToSync);
-      setSyncedRepsForSession(currentReps);
+      setSyncedRepsForSession(totalCurrentReps);
+      setGameState(prev => ({
+          ...prev,
+          lastSyncDate: today,
+          syncsToday: currentSyncs + 1
+      }));
     } catch (error) {
       console.error('Failed to sync', error);
     } finally {
@@ -337,18 +456,44 @@ export default function App() {
 
   const getContainerStyles = () => {
     const base = isDark ? 'bg-neutral-800' : 'bg-white';
-    if (styleMode === 'kids') return `${base} rounded-3xl shadow-lg border-[6px] ${isDark ? 'border-primary-900' : 'border-primary-100'}`;
-    if (styleMode === 'retro') return `${base} rounded-none border-4 ${isDark ? 'border-neutral-500 shadow-[8px_8px_0px_0px_rgba(115,115,115,1)]' : 'border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]'}`;
-    return `${base} rounded-2xl shadow-sm border ${isDark ? 'border-neutral-700' : 'border-neutral-200'}`;
+    let styles = '';
+    if (styleMode === 'kids') {
+      styles = `${base} rounded-3xl shadow-lg border-[6px] ${isDark ? 'border-primary-900' : 'border-primary-100'}`;
+    } else if (styleMode === 'retro') {
+      styles = `${base} rounded-none border-4 ${isDark ? 'border-neutral-500 shadow-[8px_8px_0px_0px_rgba(115,115,115,1)]' : 'border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]'}`;
+    } else if (styleMode === 'slime') {
+      styles = `${base} rounded-[2rem_1rem_2.5rem_1.5rem] border-4 ${isDark ? 'border-green-600 shadow-[0_8px_32px_rgba(34,197,94,0.3)] bg-neutral-900/90' : 'border-green-400 bg-green-50/20 shadow-[0_8px_32px_rgba(74,222,128,0.2)]'}`;
+    } else {
+      styles = `${base} rounded-2xl shadow-sm border ${isDark ? 'border-neutral-700' : 'border-neutral-200'}`;
+    }
+    if (isRgb) {
+      styles += ' rgb-neon-card';
+    } else if (isBacklight) {
+      styles += ' backlight-card';
+    }
+    return styles;
   };
 
   const getButtonStyles = () => {
-    if (styleMode === 'kids') return 'rounded-2xl border-b-[6px] active:border-b-0 active:translate-y-1.5';
-    if (styleMode === 'retro') return 'rounded-none border-2';
-    return 'rounded-xl';
+    let styles = '';
+    if (styleMode === 'kids') {
+      styles = 'rounded-2xl border-b-[6px] active:border-b-0 active:translate-y-1.5';
+    } else if (styleMode === 'retro') {
+      styles = 'rounded-none border-2';
+    } else if (styleMode === 'slime') {
+      styles = 'rounded-[1.2rem_0.8rem_1.5rem_0.9rem] border-b-4 border-green-500 hover:bg-green-100/10 active:border-b-0 active:translate-y-1';
+    } else {
+      styles = 'rounded-xl';
+    }
+    if (isRgb) {
+      styles += ' rgb-neon-btn';
+    } else if (isBacklight) {
+      styles += ' backlight-btn';
+    }
+    return styles;
   };
 
-  const fontClass = styleMode === 'retro' ? 'font-mono' : styleMode === 'kids' ? 'font-sans text-[1.05rem] tracking-wide' : 'font-sans';
+  const fontClass = styleMode === 'retro' ? 'font-mono' : styleMode === 'slime' ? 'font-sans text-[1.02rem] tracking-tight' : styleMode === 'kids' ? 'font-sans text-[1.05rem] tracking-wide' : 'font-sans';
   const rootClass = `${isDark ? 'bg-neutral-900 text-neutral-100' : 'bg-primary-50 text-neutral-900'} min-h-screen p-4 md:p-8 transition-colors duration-300 ${fontClass}`;
 
   const borderClass = isDark ? 'border-neutral-600' : 'border-primary-200';
@@ -386,8 +531,8 @@ export default function App() {
         {/* Header */}
         <header className={`flex flex-col md:flex-row justify-between items-start md:items-center gap-3 md:gap-4 p-4 md:p-6 relative z-50 ${getContainerStyles()}`}>
           <div>
-            <h1 className={`${isPhone ? 'text-2xl' : 'text-3xl'} font-bold tracking-tight text-primary-500 ${styleMode === 'retro' ? 'uppercase' : ''}`}>
-              {styleMode === 'kids' ? '🤸‍♂️ Треня!' : 'Тренировка'}
+            <h1 className={`${isPhone ? 'text-2xl' : 'text-3xl'} font-bold tracking-tight ${isRainbow ? 'rainbow-text' : 'text-primary-500'} ${styleMode === 'retro' ? 'uppercase' : ''}`}>
+              {styleMode === 'kids' ? '🤸‍♂️ Треня!' : styleMode === 'slime' ? '🤢 Слизневая Треня!' : 'Тренировка'}
             </h1>
             <p className={`${mutedTextClass} mt-1 ${isPhone ? 'text-sm' : ''}`}>Отслеживание подходов и отдыха</p>
           </div>
@@ -398,10 +543,15 @@ export default function App() {
               <div className={`${isPhone ? 'text-xs' : 'text-sm'} font-medium whitespace-nowrap`}>
                 <span className={mutedTextClass}>Сделано: </span>
                 <span className={`text-base md:text-lg font-bold ${isFinished ? (isDark ? 'text-green-400' : 'text-green-600') : (isDark ? 'text-primary-400' : 'text-primary-600')}`}>
-                  {currentReps}
+                  {currentRepsForUI} ({repPercentage}%)
                 </span>
-                <span className={mutedTextClass}> / 192 р.</span>
+                <span className={mutedTextClass}> / {totalTargetReps} р.</span>
               </div>
+            </div>
+
+            <div className="flex items-center gap-1 font-bold text-yellow-500 bg-yellow-50 dark:bg-yellow-900/30 px-3 py-2 border border-yellow-200 dark:border-yellow-700/50 mr-1" style={{ borderRadius: styleMode === 'retro' ? '0' : '0.75rem' }}>
+              <span className="text-xl leading-none">🪙</span>
+              <span className="text-sm md:text-base">{gameState.coins}</span>
             </div>
 
             <div className="flex gap-2 relative">
@@ -427,6 +577,63 @@ export default function App() {
                       />
                     </div>
                     <ColorPickerField hsv={hsv} setHsv={setHsv} />
+                    
+                    <div className="mt-4 pt-3 border-t border-neutral-200 dark:border-neutral-700 space-y-2">
+                      <h4 className="text-xs font-semibold text-neutral-400 uppercase tracking-wider">Спецэффекты</h4>
+                      <div className="flex flex-col gap-2">
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            onClick={() => {
+                              setIsRgb(!isRgb);
+                              if (!isRgb) setIsBacklight(false);
+                            }}
+                            className={`flex items-center justify-center gap-1.5 py-1.5 px-3 text-sm font-bold border transition-all ${
+                              isRgb 
+                                ? 'bg-neutral-900 border-pink-500 text-pink-400 shadow-[0_0_10px_rgba(236,72,153,0.5)]' 
+                                : 'bg-neutral-100 hover:bg-neutral-200 text-neutral-700 border-transparent dark:bg-neutral-750 dark:hover:bg-neutral-700 dark:text-neutral-300'
+                            } ${getButtonStyles()}`}
+                          >
+                            <span className={isRgb ? "animate-bounce" : ""}>✨</span> RGB
+                          </button>
+                          <button
+                            onClick={() => {
+                              setIsRainbow(!isRainbow);
+                            }}
+                            className={`flex items-center justify-center gap-1.5 py-1.5 px-3 text-sm font-bold border transition-all ${
+                              isRainbow 
+                                ? 'rainbow-bg shadow-[0_0_10px_rgba(59,130,246,0.5)]' 
+                                : 'bg-neutral-100 hover:bg-neutral-200 text-neutral-700 border-transparent dark:bg-neutral-750 dark:hover:bg-neutral-700 dark:text-neutral-300'
+                            } ${getButtonStyles()}`}
+                          >
+                            🌈 Радуга
+                          </button>
+                        </div>
+
+                        <button
+                          onClick={() => {
+                            setIsBacklight(!isBacklight);
+                            if (!isBacklight) setIsRgb(false);
+                          }}
+                          style={{
+                            borderColor: isBacklight ? `hsl(${cssH}, ${cssS}%, ${cssL}%)` : 'transparent',
+                            boxShadow: isBacklight ? `0 0 10px hsl(${cssH}, ${cssS}%, ${cssL}%, 0.6)` : 'none'
+                          }}
+                          className={`w-full flex items-center justify-center gap-2 py-1.5 px-3 text-sm font-bold border transition-all ${
+                            isBacklight
+                              ? 'bg-neutral-900 bg-opacity-95'
+                              : 'bg-neutral-100 hover:bg-neutral-200 text-neutral-700 border-transparent dark:bg-neutral-750 dark:hover:bg-neutral-700 dark:text-neutral-300'
+                          } ${getButtonStyles()}`}
+                        >
+                          <span 
+                            className="inline-block w-3.5 h-3.5 rounded-full border border-white shrink-0 shadow-sm"
+                            style={{ backgroundColor: `hsl(${cssH}, ${cssS}%, ${cssL}%)` }}
+                          />
+                          <span style={{ color: isBacklight ? `hsl(${cssH}, ${cssS}%, ${cssL}%)` : 'inherit' }}>
+                            Подсветка {isBacklight && '(вкл.)'}
+                          </span>
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>
@@ -449,7 +656,7 @@ export default function App() {
                       <div>
                         <span className={`text-sm font-medium ${mutedTextClass} mb-2 block`}>Стиль</span>
                         <div className="flex flex-col gap-2">
-                          {(['kids', 'adult', 'retro'] as const).map(s => {
+                          {(['kids', 'adult', 'retro', 'slime'] as const).map(s => {
                             const isActive = styleMode === s;
                             return (
                               <button
@@ -461,7 +668,7 @@ export default function App() {
                                     : (isDark ? 'bg-neutral-700 text-neutral-200 border-transparent hover:bg-neutral-600' : 'bg-neutral-50 text-neutral-700 border-transparent hover:bg-neutral-100')
                                 }`}
                               >
-                                {s === 'kids' ? '🎈 Детский' : s === 'adult' ? '👔 Взрослый' : '🕹️ Ретро'}
+                                {s === 'kids' ? '🎈 Детский' : s === 'adult' ? '👔 Обычный' : s === 'retro' ? '🕹️ Ретро' : '🤢 Слизневый'}
                               </button>
                             );
                           })}
@@ -574,26 +781,71 @@ export default function App() {
                   </tbody>
                 </table>
               </div>
+              {isFinished && (
+                <div className="p-4 flex justify-center animate-in fade-in">
+                  <button 
+                    onClick={handleFinishWorkout}
+                    className={`px-6 py-3 bg-green-500 hover:bg-green-600 text-white font-bold text-lg flex items-center gap-2 shadow-lg ${getButtonStyles()}`}
+                  >
+                    Завершить тренировку {gameState.lastCoinDate !== new Date().toLocaleDateString('en-CA') && "(+5 🪙)"}
+                  </button>
+                </div>
+              )}
             </div>
 
-            {/* Rules */}
+            {/* Set Configuration */}
             <div className={`p-4 md:p-6 relative overflow-hidden ${getContainerStyles()}`}>
               {styleMode !== 'retro' && (
                 <div className="absolute top-0 left-0 w-2 h-full bg-primary-500 opacity-80"></div>
               )}
               <h2 className={`${isPhone ? 'text-base' : 'text-xl'} font-bold text-primary-500 uppercase flex items-center gap-2 mb-3 md:mb-4 ${styleMode !== 'retro' ? 'ml-2' : ''}`}>
-                Правила
+                Настройка подходов
               </h2>
-              <ul className={`space-y-3 md:space-y-4 font-medium ${isPhone ? 'text-sm' : 'text-lg'} ${styleMode !== 'retro' ? 'ml-2' : ''}`}>
-                <li className="flex items-center gap-2 md:gap-3 flex-wrap">
-                  <span className="text-primary-500 shrink-0">1)</span>
-                  <span>1 подход = <span className={`ring-2 ${isDark ? 'ring-primary-900 bg-primary-950' : 'ring-primary-200 bg-primary-50'} px-2 py-0.5 md:py-1 mx-1 ${getButtonStyles()}`}>12 раз</span></span>
-                </li>
-                <li className="flex items-center gap-2 md:gap-3 flex-wrap">
-                  <span className="text-primary-500 shrink-0">2)</span>
-                  <span>Всего ровно <span className={`ring-2 ${isDark ? 'ring-red-900 bg-red-950 text-red-400' : 'ring-red-200 bg-red-50 text-red-600'} font-bold px-2 py-0.5 md:py-1 mx-1 underline decoration-red-400 decoration-2 underline-offset-4 ${getButtonStyles()}`}>192 р.</span></span>
-                </li>
-              </ul>
+              {gameState.unlockedReps ? (
+                <div className={`font-medium ${isPhone ? 'text-sm' : 'text-lg'} ${styleMode !== 'retro' ? 'ml-2' : ''} flex flex-col gap-4`}>
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <label htmlFor="repsInput" className="text-neutral-700 dark:text-neutral-300">
+                      Количество повторений за 1 подход:
+                    </label>
+                    <input
+                      id="repsInput"
+                      type="number"
+                      min="6"
+                      max="500"
+                      value={repsPerSet || ''}
+                      onChange={(e) => {
+                        if (e.target.value === '') {
+                          setRepsPerSet(0);
+                          return;
+                        }
+                        let val = parseInt(e.target.value, 10);
+                        if (isNaN(val)) return;
+                        if (val > 500) val = 500;
+                        setRepsPerSet(val);
+                      }}
+                      onBlur={() => {
+                          if (!repsPerSet || repsPerSet < 6) setRepsPerSet(6);
+                      }}
+                      className={`w-20 px-2 py-1 text-center font-bold outline-none ring-2 focus:ring-primary-500 ${isDark ? 'ring-primary-900 bg-primary-950 text-white' : 'ring-primary-200 bg-primary-50'} ${getButtonStyles()}`}
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div className={`flex items-center justify-between gap-3 flex-wrap p-3 bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 ${getButtonStyles()}`}>
+                  <span className="text-sm text-neutral-500 dark:text-neutral-400 font-medium">🔒 Настройка количества раз</span>
+                  <button
+                    disabled={gameState.coins < 10}
+                    onClick={() => {
+                      if (gameState.coins >= 10) {
+                        setGameState(p => ({...p, coins: p.coins - 10, unlockedReps: true}));
+                      }
+                    }}
+                    className={`px-3 py-1.5 bg-yellow-400 hover:bg-yellow-500 text-yellow-900 font-bold text-sm disabled:opacity-50 ${getButtonStyles()}`}
+                  >
+                    Разблокировать (10 🪙)
+                  </button>
+                </div>
+              )}
             </div>
 
           </div>
@@ -636,8 +888,8 @@ export default function App() {
               <div className="flex gap-2 mb-4 md:mb-6 w-full max-w-[200px]">
                 <button
                   onClick={toggleTimer}
-                  disabled={timeLeft === 0}
-                  className={`flex-1 ${isDark ? 'bg-neutral-100 text-neutral-900 hover:bg-neutral-300' : 'bg-neutral-900 text-white hover:bg-neutral-800'} py-2 md:py-3 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed transition-colors ${getButtonStyles()}`}
+                  disabled={timeLeft === 0 && totalTimerTime === 0}
+                  className={`flex-1 ${isDark ? 'bg-neutral-100 text-neutral-900 hover:bg-neutral-300' : 'bg-neutral-900 text-white hover:bg-neutral-800'} py-2 md:py-3 flex items-center justify-center transition-colors ${getButtonStyles()}`}
                 >
                   {timerActive ? <Pause className={`fill-current ${isPhone ? 'w-4 h-4' : 'w-5 h-5'}`} /> : <Play className={`fill-current ${isPhone ? 'w-4 h-4' : 'w-5 h-5'}`} />}
                 </button>
@@ -650,20 +902,56 @@ export default function App() {
                 </button>
               </div>
 
-              <div className="space-y-2 md:space-y-3 w-full">
+              <div className="space-y-4 w-full">
+                {gameState.unlockedRest ? (
+                  <div className="flex flex-col gap-2">
+                    <label htmlFor="customTimerInput" className={`${isPhone ? 'text-xs' : 'text-sm'} ${mutedTextClass} font-medium text-center`}>
+                      Время отдыха (сек):
+                    </label>
+                    <input
+                      id="customTimerInput"
+                      type="number"
+                      min="10"
+                      max="60"
+                      value={customRestSeconds || ''}
+                      onChange={(e) => {
+                        if (e.target.value === '') {
+                          setCustomRestSeconds(0);
+                          return;
+                        }
+                        let val = parseInt(e.target.value, 10);
+                        if (isNaN(val)) return;
+                        if (val > 60) val = 60;
+                        setCustomRestSeconds(val);
+                      }}
+                      onBlur={() => {
+                        if (!customRestSeconds || customRestSeconds < 10) setCustomRestSeconds(10);
+                      }}
+                      className={`w-full px-3 py-2 text-center text-lg font-bold outline-none ring-2 focus:ring-primary-500 ${isDark ? 'ring-primary-900 bg-primary-950 text-white' : 'ring-primary-200 bg-primary-50'} ${getButtonStyles()}`}
+                    />
+                  </div>
+                ) : (
+                  <div className={`flex items-center justify-between gap-2 p-2 bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 ${getButtonStyles()}`}>
+                    <span className="text-xs text-neutral-500 dark:text-neutral-400">Свое время: 🔒</span>
+                    <button
+                      disabled={gameState.coins < 5}
+                      onClick={() => {
+                        if (gameState.coins >= 5) {
+                          setGameState(p => ({...p, coins: p.coins - 5, unlockedRest: true}));
+                        }
+                      }}
+                      className={`px-2 py-1 bg-yellow-400 hover:bg-yellow-500 text-yellow-900 font-bold text-xs disabled:opacity-50 ${getButtonStyles()}`}
+                    >
+                      Купить (5 🪙)
+                    </button>
+                  </div>
+                )}
+                
                 <button
-                  onClick={() => startTimer(25)}
-                  className={`w-full text-left ${darkCardBg} hover:bg-primary-50 dark:hover:bg-primary-950 border ${isDark ? 'border-neutral-600 hover:border-primary-600' : 'border-neutral-200 hover:border-primary-200'} transition-colors p-3 md:p-4 flex flex-col ${getButtonStyles()}`}
+                  onClick={() => startTimer(gameState.unlockedRest ? customRestSeconds : 25)}
+                  className={`w-full text-center ${darkCardBg} hover:bg-primary-50 dark:hover:bg-primary-950 border ${isDark ? 'border-primary-600 hover:border-primary-500' : 'border-primary-200 hover:border-primary-400'} text-primary-600 dark:text-primary-400 font-bold transition-colors p-3 md:p-4 ${getButtonStyles()}`}
                 >
-                  <span className={`${isPhone ? 'text-xs' : 'text-sm'} ${mutedTextClass} font-medium`}>Стандартный отдых</span>
-                  <span className={`${isPhone ? 'text-base' : 'text-lg'} font-bold`}>25 сек</span>
-                </button>
-                <button
-                  onClick={() => startTimer(35)}
-                  className={`w-full text-left ${darkCardBg} hover:bg-primary-50 dark:hover:bg-primary-950 border ${isDark ? 'border-neutral-600 hover:border-primary-600' : 'border-neutral-200 hover:border-primary-200'} transition-colors p-3 md:p-4 flex flex-col ${getButtonStyles()}`}
-                >
-                  <span className={`${isPhone ? 'text-xs' : 'text-sm'} ${mutedTextClass} font-medium whitespace-normal`}>После 4 подходов</span>
-                  <span className={`${isPhone ? 'text-base' : 'text-lg'} font-bold`}>35 сек</span>
+                  Запустить таймер {!gameState.unlockedRest && "(25 сек)"}
                 </button>
               </div>
             </div>
@@ -697,8 +985,13 @@ export default function App() {
                   type="text"
                   placeholder="Ваше имя..."
                   value={nameInput}
-                  onChange={(e) => setNameInput(e.target.value)}
-                  maxLength={20}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (/^[a-zA-Zа-яА-ЯёЁ0-9\s]*$/.test(val)) {
+                      setNameInput(val);
+                    }
+                  }}
+                  maxLength={15}
                   className={`px-3 py-2 w-full md:w-48 outline-none focus:ring-2 focus:ring-primary-500 ${isDark ? 'bg-neutral-800 text-white border-neutral-600' : 'bg-neutral-50 text-neutral-900 border-neutral-200'} border ${getButtonStyles()}`}
                   onKeyDown={(e) => e.key === 'Enter' && handleSaveName()}
                 />
@@ -710,14 +1003,33 @@ export default function App() {
           )}
 
           {localProfile && (
-            <button 
-              onClick={handleSyncToLeaderboard}
-              disabled={currentReps - syncedRepsForSession <= 0 || isSyncing}
-              className={`w-full md:w-auto px-4 py-2 md:py-3 ${currentReps - syncedRepsForSession > 0 ? 'bg-primary-500 hover:bg-primary-600 text-white' : 'bg-neutral-200 dark:bg-neutral-800 text-neutral-400'} font-medium flex items-center justify-center gap-2 disabled:cursor-not-allowed transition-colors ${getButtonStyles()}`}
-            >
-              {isSyncing ? <div className="w-5 h-5 animate-spin rounded-full border-2 border-t-transparent border-current" /> : <Save className="w-5 h-5" />}
-              {currentReps - syncedRepsForSession > 0 ? `В рейтинг (+${currentReps - syncedRepsForSession} р.)` : 'Сохранено'}
-            </button>
+            <div className="flex flex-col gap-2 w-full md:w-auto mt-4 md:mt-0">
+              <button 
+                onClick={handleSyncToLeaderboard}
+                disabled={totalCurrentReps - syncedRepsForSession <= 0 || isSyncing}
+                className={`w-full md:w-auto px-4 py-2 md:py-3 ${totalCurrentReps - syncedRepsForSession > 0 ? 'bg-primary-500 hover:bg-primary-600 text-white' : 'bg-neutral-200 dark:bg-neutral-800 text-neutral-400'} font-medium flex items-center justify-center gap-2 disabled:cursor-not-allowed transition-colors ${getButtonStyles()}`}
+              >
+                {isSyncing ? <div className="w-5 h-5 animate-spin rounded-full border-2 border-t-transparent border-current" /> : <Save className="w-5 h-5" />}
+                {totalCurrentReps - syncedRepsForSession > 0 ? `В рейтинг (+${totalCurrentReps - syncedRepsForSession} р.)` : 'Сохранено'}
+              </button>
+              
+              {!gameState.unlockedMultipleSyncs && (
+                <div className={`flex flex-col gap-1 p-2 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 ${getButtonStyles()}`}>
+                  <span className="text-xs text-yellow-800 dark:text-yellow-400 font-medium text-center">Топ-5 раз/день</span>
+                  <button
+                    disabled={gameState.coins < 35}
+                    onClick={() => {
+                      if (gameState.coins >= 35) {
+                        setGameState(p => ({...p, coins: p.coins - 35, unlockedMultipleSyncs: true}));
+                      }
+                    }}
+                    className="w-full text-xs font-bold bg-yellow-400 hover:bg-yellow-500 text-yellow-900 disabled:opacity-50 py-1 rounded"
+                  >
+                    Купить (35 🪙)
+                  </button>
+                </div>
+              )}
+            </div>
           )}
         </div>
 
