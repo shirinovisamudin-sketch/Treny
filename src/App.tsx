@@ -6,7 +6,6 @@ import {
   User,
   LogOut,
   Save,
-  Crown,
   Flame,
   Sparkles,
   Info,
@@ -23,7 +22,6 @@ import { BoxingHub } from './components/sports/BoxingHub';
 import { WrestlingHub } from './components/sports/WrestlingHub';
 import { RunningHub } from './components/sports/RunningHub';
 import { WodHub } from './components/sports/WodHub';
-import { ProStoreModal } from './components/ProStoreModal';
 import { SportSelectionScreen } from './components/SportSelectionScreen';
 import { playCoinSound } from './lib/sounds';
 
@@ -146,7 +144,6 @@ export default function App() {
 
   // Modals
   const [painModalOpen, setPainModalOpen] = useState(false);
-  const [storeModalOpen, setStoreModalOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
 
@@ -189,12 +186,8 @@ export default function App() {
   const [syncedRepsForSession, setSyncedRepsForSession] = useState(0);
 
   const [gameState, setGameState] = useState({
-    coins: 10,
     streakDays: 1,
     lastWorkoutDate: '',
-    lastCoinDate: '',
-    isPro: false,
-    unlockedItems: [] as string[],
     syncsToday: 0,
     lastSyncDate: new Date().toLocaleDateString('en-CA'),
     completedReps: 0
@@ -328,29 +321,24 @@ export default function App() {
   const isPhone = deviceType === 'phone';
   const currentSportInfo = activeSport ? SPORTS_REGISTRY[activeSport] : SPORTS_REGISTRY['strength'];
 
-  // Daily coin check
   const todayStr = new Date().toLocaleDateString('en-CA');
-  const canGetCoinsToday = gameState.lastCoinDate !== todayStr;
 
   // Handle Finish Workout across any sport
   const handleFinishWorkout = (repsOrScore: number) => {
     playCoinSound();
-    const isNewDay = gameState.lastCoinDate !== todayStr;
-    const coinsEarned = isNewDay ? 5 : 1;
+    const isNewDay = gameState.lastWorkoutDate !== todayStr;
 
     setGameState(prev => {
       const nextStreak = isNewDay ? prev.streakDays + 1 : prev.streakDays;
       return {
         ...prev,
-        coins: prev.coins + coinsEarned,
-        lastCoinDate: todayStr,
         lastWorkoutDate: todayStr,
         streakDays: nextStreak,
         completedReps: prev.completedReps + repsOrScore
       };
     });
 
-    setWorkoutSuccessMessage(`Отлично потренировались! Зачислено +${coinsEarned} 🪙 и ${repsOrScore} очков опыта.`);
+    setWorkoutSuccessMessage(`Отлично потренировались! Зачислено +${repsOrScore} очков в ваш рекорд.`);
     setTimeout(() => setWorkoutSuccessMessage(null), 5000);
   };
 
@@ -385,12 +373,6 @@ export default function App() {
     const repsToSync = gameState.completedReps - syncedRepsForSession;
     if (repsToSync <= 0) return;
 
-    const maxSyncs = gameState.isPro || gameState.unlockedItems.includes('unlimited_sync') ? 99 : 2;
-    if (gameState.syncsToday >= maxSyncs) {
-      alert(`Лимит бесплатных синхронизаций на сегодня (${maxSyncs}). Разблокируйте PRO в магазине!`);
-      return;
-    }
-
     setIsSyncing(true);
     try {
       await addRepsToLeaderboard(localProfile.id, localProfile.name, repsToSync);
@@ -404,23 +386,6 @@ export default function App() {
     } finally {
       setIsSyncing(false);
     }
-  };
-
-  // Shop item purchase
-  const handleBuyItem = (itemId: string, cost: number) => {
-    if (gameState.coins < cost) return;
-    setGameState(prev => ({
-      ...prev,
-      coins: prev.coins - cost,
-      unlockedItems: [...prev.unlockedItems, itemId]
-    }));
-  };
-
-  const handleUpgradePro = () => {
-    setGameState(prev => ({
-      ...prev,
-      isPro: true
-    }));
   };
 
   // Dedicated Sport Selection Screen (When no sport picked yet or athlete wants to switch)
@@ -450,11 +415,6 @@ export default function App() {
                 <h1 className={`${isPhone ? 'text-xl' : 'text-2xl'} font-black tracking-tight ${isRainbow ? 'rainbow-text' : 'text-primary-500'}`}>
                   {styleMode === 'kids' ? `🤸‍♂️ ${currentSportInfo.shortTitle}!` : currentSportInfo.title}
                 </h1>
-                {gameState.isPro && (
-                  <span className="px-2 py-0.5 rounded-full bg-amber-500 text-neutral-950 font-black text-[10px] flex items-center gap-1 shadow-sm">
-                    <Crown className="w-3 h-3 fill-current" /> PRO
-                  </span>
-                )}
               </div>
               <div className="flex items-center gap-3 mt-0.5 flex-wrap">
                 <p className={`${mutedTextClass} text-xs hidden sm:block`}>
@@ -479,17 +439,6 @@ export default function App() {
               <Flame className="w-4 h-4 fill-current" />
               <span>{gameState.streakDays} дн.</span>
             </div>
-
-            {/* Coins & Store Trigger */}
-            <button
-              onClick={() => setStoreModalOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 border border-amber-500/30 font-black text-xs transition-all shadow-sm"
-              title="Открыть магазин и PRO статус"
-            >
-              <span className="text-base leading-none">🪙</span>
-              <span>{gameState.coins}</span>
-              <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-            </button>
 
             {/* Sport Pain & Solution Info Trigger */}
             <button
@@ -684,7 +633,6 @@ export default function App() {
               getButtonStyles={getButtonStyles}
               mutedTextClass={mutedTextClass}
               onFinishWorkout={handleFinishWorkout}
-              canGetCoinsToday={canGetCoinsToday}
             />
           )}
 
@@ -695,7 +643,6 @@ export default function App() {
               getButtonStyles={getButtonStyles}
               mutedTextClass={mutedTextClass}
               onFinishWorkout={handleFinishWorkout}
-              canGetCoinsToday={canGetCoinsToday}
             />
           )}
 
@@ -706,7 +653,6 @@ export default function App() {
               getButtonStyles={getButtonStyles}
               mutedTextClass={mutedTextClass}
               onFinishWorkout={handleFinishWorkout}
-              canGetCoinsToday={canGetCoinsToday}
             />
           )}
 
@@ -717,7 +663,6 @@ export default function App() {
               getButtonStyles={getButtonStyles}
               mutedTextClass={mutedTextClass}
               onFinishWorkout={handleFinishWorkout}
-              canGetCoinsToday={canGetCoinsToday}
             />
           )}
 
@@ -728,7 +673,6 @@ export default function App() {
               getButtonStyles={getButtonStyles}
               mutedTextClass={mutedTextClass}
               onFinishWorkout={handleFinishWorkout}
-              canGetCoinsToday={canGetCoinsToday}
             />
           )}
         </main>
@@ -743,12 +687,9 @@ export default function App() {
               <div>
                 <div className="font-bold flex items-center gap-1.5">
                   {localProfile.name}
-                  {(gameState.isPro || gameState.unlockedItems.includes('badge_vip')) && (
-                    <span title="VIP атлет">👑</span>
-                  )}
                 </div>
                 <div className={`text-xs ${mutedTextClass}`}>
-                  Рекорд: {gameState.completedReps} очков • {gameState.coins} 🪙
+                  Рекорд: {gameState.completedReps} очков
                 </div>
               </div>
               <button
@@ -890,20 +831,6 @@ export default function App() {
             </div>
           </div>
         )}
-
-        {/* PRO Store & Monetization Modal */}
-        <ProStoreModal
-          isOpen={storeModalOpen}
-          onClose={() => setStoreModalOpen(false)}
-          isDark={isDark}
-          coins={gameState.coins}
-          isPro={gameState.isPro}
-          unlockedItems={gameState.unlockedItems}
-          onBuyItem={handleBuyItem}
-          onUpgradePro={handleUpgradePro}
-          getContainerStyles={getContainerStyles}
-          getButtonStyles={getButtonStyles}
-        />
 
       </div>
     </div>

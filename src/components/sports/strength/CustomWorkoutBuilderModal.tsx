@@ -202,15 +202,32 @@ export function CustomWorkoutBuilderModal({
                         <span className="text-[10px] text-neutral-400 font-bold uppercase">Сеты</span>
                         <div className="flex items-center gap-1 mt-0.5">
                           <button
+                            type="button"
                             onClick={() => updateExerciseSets(idx, -1)}
-                            className="w-6 h-6 rounded-md bg-neutral-200 dark:bg-neutral-800 font-bold text-xs flex items-center justify-center hover:bg-neutral-300"
+                            className="w-6 h-7 rounded-md bg-neutral-200 dark:bg-neutral-800 font-bold text-xs flex items-center justify-center hover:bg-neutral-300"
                           >
                             -
                           </button>
-                          <span className="w-6 text-center font-black text-sm">{item.setsCount}</span>
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            pattern="[0-9]*"
+                            value={item.setsCount}
+                            onFocus={e => e.target.select()}
+                            onChange={e => {
+                              const val = parseInt(e.target.value.replace(/[^0-9]/g, ''), 10);
+                              setSelectedExercises(prev =>
+                                prev.map((ex, i) =>
+                                  i === idx ? { ...ex, setsCount: isNaN(val) ? 1 : Math.max(1, Math.min(20, val)) } : ex
+                                )
+                              );
+                            }}
+                            className="w-9 h-7 rounded-md border text-center font-black text-xs bg-neutral-100 dark:bg-neutral-800 border-neutral-300 dark:border-neutral-700"
+                          />
                           <button
+                            type="button"
                             onClick={() => updateExerciseSets(idx, 1)}
-                            className="w-6 h-6 rounded-md bg-neutral-200 dark:bg-neutral-800 font-bold text-xs flex items-center justify-center hover:bg-neutral-300"
+                            className="w-6 h-7 rounded-md bg-neutral-200 dark:bg-neutral-800 font-bold text-xs flex items-center justify-center hover:bg-neutral-300"
                           >
                             +
                           </button>
@@ -221,9 +238,15 @@ export function CustomWorkoutBuilderModal({
                       <div className="flex flex-col items-center">
                         <span className="text-[10px] text-neutral-400 font-bold uppercase">Повт</span>
                         <input
-                          type="number"
+                          type="text"
+                          inputMode="numeric"
+                          pattern="[0-9]*"
                           value={item.repsCount}
-                          onChange={e => updateExerciseReps(idx, Number(e.target.value) || 1)}
+                          onFocus={e => e.target.select()}
+                          onChange={e => {
+                            const val = parseInt(e.target.value.replace(/[^0-9]/g, ''), 10);
+                            updateExerciseReps(idx, isNaN(val) ? 1 : val);
+                          }}
                           className="w-12 h-7 rounded-md border text-center font-bold text-xs mt-0.5 bg-neutral-100 dark:bg-neutral-800 border-neutral-300 dark:border-neutral-700"
                         />
                       </div>
@@ -232,9 +255,15 @@ export function CustomWorkoutBuilderModal({
                       <div className="flex flex-col items-center">
                         <span className="text-[10px] text-neutral-400 font-bold uppercase">Вес (кг)</span>
                         <input
-                          type="number"
+                          type="text"
+                          inputMode="decimal"
                           value={item.weight}
-                          onChange={e => updateExerciseWeight(idx, Number(e.target.value) || 0)}
+                          onFocus={e => e.target.select()}
+                          onChange={e => {
+                            const raw = e.target.value.replace(',', '.').replace(/[^0-9.]/g, '');
+                            const val = parseFloat(raw);
+                            updateExerciseWeight(idx, isNaN(val) ? 0 : val);
+                          }}
                           className="w-14 h-7 rounded-md border text-center font-bold text-xs mt-0.5 bg-neutral-100 dark:bg-neutral-800 border-neutral-300 dark:border-neutral-700"
                         />
                       </div>

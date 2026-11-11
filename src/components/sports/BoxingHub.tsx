@@ -8,7 +8,6 @@ interface BoxingHubProps {
   getButtonStyles: () => string;
   mutedTextClass: string;
   onFinishWorkout: (reps: number) => void;
-  canGetCoinsToday: boolean;
 }
 
 type RoundState = 'idle' | 'work' | 'warning' | 'rest';
@@ -38,8 +37,7 @@ export function BoxingHub({
   getContainerStyles,
   getButtonStyles,
   mutedTextClass,
-  onFinishWorkout,
-  canGetCoinsToday
+  onFinishWorkout
 }: BoxingHubProps) {
   const [selectedPresetId, setSelectedPresetId] = useState('amateur');
   const activePreset = PRESETS.find(p => p.id === selectedPresetId) || PRESETS[0];
@@ -334,7 +332,7 @@ export function BoxingHub({
           disabled={completedRoundsCount === 0}
           className={`w-full sm:w-auto px-6 py-3 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white font-bold text-sm flex items-center justify-center gap-2 shadow-lg ${getButtonStyles()}`}
         >
-          Завершить бокс {canGetCoinsToday && '(+5 🪙)'}
+          Завершить бокс
         </button>
       </div>
     </div>

@@ -34,7 +34,6 @@ interface StrengthHubProps {
   getButtonStyles: () => string;
   mutedTextClass: string;
   onFinishWorkout: (reps: number) => void;
-  canGetCoinsToday: boolean;
 }
 
 export function StrengthHub({
@@ -42,8 +41,7 @@ export function StrengthHub({
   getContainerStyles,
   getButtonStyles,
   mutedTextClass,
-  onFinishWorkout,
-  canGetCoinsToday
+  onFinishWorkout
 }: StrengthHubProps) {
   // Programs from localStorage or default
   const [programs, setPrograms] = useState<WorkoutProgram[]>(() => {
@@ -281,15 +279,42 @@ export function StrengthHub({
             <div className="text-right">
               <div className="text-[10px] uppercase font-bold text-neutral-400 flex items-center justify-end gap-1">
                 <Clock className="w-3 h-3 text-primary-500" />
-                Отдых
+                Отдых (сек)
               </div>
-              <div
-                className={`text-lg sm:text-xl font-black tabular-nums transition-colors ${
-                  timerActive ? 'text-primary-500 animate-pulse' : 'text-neutral-300'
-                }`}
-              >
-                {timerActive ? `${timeLeft} с` : `${restDuration} с`}
-              </div>
+              {timerActive ? (
+                <div className="text-lg sm:text-xl font-black tabular-nums text-primary-500 animate-pulse">
+                  {timeLeft} с
+                </div>
+              ) : (
+                <div className="flex items-center justify-end gap-1 mt-0.5">
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    value={restDuration === 0 ? '' : restDuration}
+                    placeholder="90"
+                    onChange={e => {
+                      const digits = e.target.value.replace(/[^0-9]/g, '');
+                      const val = digits === '' ? 0 : Math.min(3600, parseInt(digits, 10));
+                      setRestDuration(val);
+                      setTimeLeft(val);
+                    }}
+                    onBlur={() => {
+                      if (restDuration < 5) {
+                        setRestDuration(30);
+                        setTimeLeft(30);
+                      }
+                    }}
+                    className={`w-16 px-2 py-0.5 text-right text-base sm:text-lg font-black tabular-nums rounded-lg border outline-none focus:ring-2 focus:ring-primary-500 transition-all ${
+                      isDark
+                        ? 'bg-neutral-900 border-neutral-700 text-neutral-100'
+                        : 'bg-neutral-100 border-neutral-300 text-neutral-900'
+                    }`}
+                    title="Введите своё время отдыха в секундах"
+                  />
+                  <span className="text-xs font-bold text-neutral-400">с</span>
+                </div>
+              )}
             </div>
 
             {/* Timer quick start / pause button */}
@@ -303,7 +328,7 @@ export function StrengthHub({
               </button>
             ) : (
               <button
-                onClick={() => startRestTimer()}
+                onClick={() => startRestTimer(restDuration || 60)}
                 className="w-10 h-10 rounded-2xl bg-primary-500 hover:bg-primary-600 text-white flex items-center justify-center shadow-md active:scale-95 transition-transform"
                 title="Запустить таймер отдыха"
               >
@@ -321,7 +346,7 @@ export function StrengthHub({
           </div>
         </div>
 
-        {/* Quick rest presets pills */}
+        {/* Quick rest presets pills + manual custom input */}
         <div className="flex items-center gap-1.5 mt-2.5 pt-2.5 border-t border-neutral-200 dark:border-neutral-800/80 overflow-x-auto">
           <span className="text-[10px] uppercase font-bold text-neutral-400 shrink-0 mr-1">Пауза:</span>
           {[45, 60, 90, 120, 180].map(sec => (
@@ -340,6 +365,29 @@ export function StrengthHub({
               {sec}с
             </button>
           ))}
+          <div className="flex items-center gap-1 ml-auto shrink-0 pl-1">
+            <span className="text-[10px] font-bold text-neutral-400 hidden sm:inline">Своё:</span>
+            <input
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              value={restDuration === 0 ? '' : restDuration}
+              placeholder="сек"
+              onChange={e => {
+                const digits = e.target.value.replace(/[^0-9]/g, '');
+                const val = digits === '' ? 0 : Math.min(3600, parseInt(digits, 10));
+                setRestDuration(val);
+                if (timerActive && val >= 5) startRestTimer(val);
+              }}
+              className={`w-14 px-2 py-1 rounded-xl text-xs font-bold text-center border outline-none focus:border-primary-500 ${
+                isDark
+                  ? 'bg-neutral-900 border-neutral-700 text-neutral-200'
+                  : 'bg-neutral-100 border-neutral-300 text-neutral-800'
+              }`}
+              title="Введите время отдыха в секундах"
+            />
+            <span className="text-[10px] font-bold text-neutral-400">сек</span>
+          </div>
         </div>
       </div>
 
@@ -499,37 +547,65 @@ export function StrengthHub({
               </div>
             )}
 
-            {/* Quick in-place weight and reps adjustments for this session */}
+            {/* Quick in-place weight and reps adjustments for this session (supports keyboard & mobile numeric keypad) */}
             <div className="grid grid-cols-2 gap-2 pt-1">
               <div className="p-2 rounded-xl bg-neutral-200/50 dark:bg-neutral-800/50 flex flex-col items-center">
-                <span className="text-[10px] uppercase font-bold text-neutral-400">Вес снаряда</span>
-                <div className="flex items-center gap-2 mt-0.5">
+                <span className="text-[10px] uppercase font-bold text-neutral-400">Вес снаряда (кг)</span>
+                <div className="flex items-center gap-1.5 mt-1 w-full justify-center">
                   <button
+                    type="button"
                     onClick={() =>
                       setExerciseOverrides(prev => ({
                         ...prev,
                         [safeExerciseIndex]: {
-                          weight: Math.max(0, activeWeight - 2.5),
+                          weight: Math.max(0, Number((activeWeight - 2.5).toFixed(1))),
                           reps: activeReps
                         }
                       }))
                     }
-                    className="w-6 h-6 rounded-md bg-neutral-300 dark:bg-neutral-700 font-bold flex items-center justify-center"
+                    className="w-7 h-7 rounded-lg bg-neutral-300 dark:bg-neutral-700 hover:bg-neutral-400 dark:hover:bg-neutral-600 font-bold flex items-center justify-center shrink-0 active:scale-95"
                   >
                     -
                   </button>
-                  <span className="font-black text-sm">{activeWeight} кг</span>
+                  <div className="relative flex items-center">
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={activeWeight === 0 ? '0' : activeWeight}
+                      onFocus={e => e.target.select()}
+                      onChange={e => {
+                        const raw = e.target.value.replace(',', '.').replace(/[^0-9.]/g, '');
+                        const parts = raw.split('.');
+                        const sanitized = parts.length > 2 ? `${parts[0]}.${parts.slice(1).join('')}` : raw;
+                        const num = sanitized === '' ? 0 : Math.min(1000, parseFloat(sanitized));
+                        setExerciseOverrides(prev => ({
+                          ...prev,
+                          [safeExerciseIndex]: {
+                            weight: isNaN(num) ? 0 : num,
+                            reps: activeReps
+                          }
+                        }));
+                      }}
+                      className={`w-16 h-7 px-1.5 text-center font-black text-sm rounded-lg border outline-none focus:ring-2 focus:ring-primary-500 ${
+                        isDark
+                          ? 'bg-neutral-900 border-neutral-700 text-white'
+                          : 'bg-white border-neutral-300 text-neutral-900'
+                      }`}
+                      title="Введите вес снаряда с клавиатуры"
+                    />
+                  </div>
                   <button
+                    type="button"
                     onClick={() =>
                       setExerciseOverrides(prev => ({
                         ...prev,
                         [safeExerciseIndex]: {
-                          weight: activeWeight + 2.5,
+                          weight: Number((activeWeight + 2.5).toFixed(1)),
                           reps: activeReps
                         }
                       }))
                     }
-                    className="w-6 h-6 rounded-md bg-neutral-300 dark:bg-neutral-700 font-bold flex items-center justify-center"
+                    className="w-7 h-7 rounded-lg bg-neutral-300 dark:bg-neutral-700 hover:bg-neutral-400 dark:hover:bg-neutral-600 font-bold flex items-center justify-center shrink-0 active:scale-95"
                   >
                     +
                   </button>
@@ -538,8 +614,9 @@ export function StrengthHub({
 
               <div className="p-2 rounded-xl bg-neutral-200/50 dark:bg-neutral-800/50 flex flex-col items-center">
                 <span className="text-[10px] uppercase font-bold text-neutral-400">Цель повторов</span>
-                <div className="flex items-center gap-2 mt-0.5">
+                <div className="flex items-center gap-1.5 mt-1 w-full justify-center">
                   <button
+                    type="button"
                     onClick={() =>
                       setExerciseOverrides(prev => ({
                         ...prev,
@@ -549,12 +626,47 @@ export function StrengthHub({
                         }
                       }))
                     }
-                    className="w-6 h-6 rounded-md bg-neutral-300 dark:bg-neutral-700 font-bold flex items-center justify-center"
+                    className="w-7 h-7 rounded-lg bg-neutral-300 dark:bg-neutral-700 hover:bg-neutral-400 dark:hover:bg-neutral-600 font-bold flex items-center justify-center shrink-0 active:scale-95"
                   >
                     -
                   </button>
-                  <span className="font-black text-sm">{activeReps}</span>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    value={activeReps === 0 ? '' : activeReps}
+                    onFocus={e => e.target.select()}
+                    onChange={e => {
+                      const raw = e.target.value.replace(/[^0-9]/g, '');
+                      const num = raw === '' ? 0 : Math.min(500, parseInt(raw, 10));
+                      setExerciseOverrides(prev => ({
+                        ...prev,
+                        [safeExerciseIndex]: {
+                          weight: activeWeight,
+                          reps: num
+                        }
+                      }));
+                    }}
+                    onBlur={() => {
+                      if (activeReps < 1) {
+                        setExerciseOverrides(prev => ({
+                          ...prev,
+                          [safeExerciseIndex]: {
+                            weight: activeWeight,
+                            reps: 1
+                          }
+                        }));
+                      }
+                    }}
+                    className={`w-14 h-7 px-1.5 text-center font-black text-sm rounded-lg border outline-none focus:ring-2 focus:ring-primary-500 ${
+                      isDark
+                        ? 'bg-neutral-900 border-neutral-700 text-white'
+                        : 'bg-white border-neutral-300 text-neutral-900'
+                    }`}
+                    title="Введите количество повторений с клавиатуры"
+                  />
                   <button
+                    type="button"
                     onClick={() =>
                       setExerciseOverrides(prev => ({
                         ...prev,
@@ -564,7 +676,7 @@ export function StrengthHub({
                         }
                       }))
                     }
-                    className="w-6 h-6 rounded-md bg-neutral-300 dark:bg-neutral-700 font-bold flex items-center justify-center"
+                    className="w-7 h-7 rounded-lg bg-neutral-300 dark:bg-neutral-700 hover:bg-neutral-400 dark:hover:bg-neutral-600 font-bold flex items-center justify-center shrink-0 active:scale-95"
                   >
                     +
                   </button>
@@ -658,13 +770,7 @@ export function StrengthHub({
       {/* 5. FINISH WORKOUT CARD (ALWAYS CONVENIENTLY AVAILABLE) */}
       <div className={`p-4 rounded-2xl ${getContainerStyles()} flex flex-col sm:flex-row items-center justify-between gap-3`}>
         <div className="text-xs text-neutral-400 text-center sm:text-left">
-          {canGetCoinsToday ? (
-            <span className="text-amber-500 font-semibold flex items-center justify-center sm:justify-start gap-1">
-              <Sparkles className="w-4 h-4" /> Награда за завершение: +5 🪙
-            </span>
-          ) : (
-            <span>Монеты за сегодня уже получены. Завершение обновит ваш рекорд в таблице!</span>
-          )}
+          <span>Завершение тренировки сохранит выполненные повторения в ваш рекорд!</span>
         </div>
 
         <button
@@ -727,21 +833,39 @@ export function StrengthHub({
             {/* Tool 1: Barbell Plate Calculator */}
             {activeTool === 'plate' && (
               <div className="space-y-3">
-                <div className="flex justify-between items-center text-xs text-neutral-400">
-                  <span>Вес грифа: {barWeight} кг</span>
-                  <span>Целевой вес: {targetWeight} кг</span>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <input
-                    type="number"
-                    value={targetWeight}
-                    onChange={e => setTargetWeight(Math.max(barWeight, Number(e.target.value) || 0))}
-                    step="2.5"
-                    className={`w-full text-center text-lg font-bold p-2 rounded-xl border ${
-                      isDark ? 'bg-neutral-900 border-neutral-700' : 'bg-neutral-50 border-neutral-300'
-                    }`}
-                  />
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-[10px] uppercase font-bold text-neutral-400 block mb-1">
+                      Вес грифа (кг)
+                    </label>
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      value={barWeight}
+                      onFocus={e => e.target.select()}
+                      onChange={e => setBarWeight(Math.max(0, Number(e.target.value) || 0))}
+                      step="2.5"
+                      className={`w-full text-center text-base font-bold p-2 rounded-xl border ${
+                        isDark ? 'bg-neutral-900 border-neutral-700' : 'bg-neutral-50 border-neutral-300'
+                      }`}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] uppercase font-bold text-neutral-400 block mb-1">
+                      Целевой вес штанги (кг)
+                    </label>
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      value={targetWeight}
+                      onFocus={e => e.target.select()}
+                      onChange={e => setTargetWeight(Math.max(0, Number(e.target.value) || 0))}
+                      step="2.5"
+                      className={`w-full text-center text-base font-bold p-2 rounded-xl border ${
+                        isDark ? 'bg-neutral-900 border-neutral-700' : 'bg-neutral-50 border-neutral-300'
+                      }`}
+                    />
+                  </div>
                 </div>
 
                 <div className="flex gap-1.5 flex-wrap">
@@ -791,7 +915,9 @@ export function StrengthHub({
                     </label>
                     <input
                       type="number"
+                      inputMode="decimal"
                       value={calcWeight}
+                      onFocus={e => e.target.select()}
                       onChange={e => setCalcWeight(Number(e.target.value) || 0)}
                       className={`w-full p-2 text-center rounded-xl border font-bold text-sm ${
                         isDark ? 'bg-neutral-900 border-neutral-700' : 'bg-neutral-50 border-neutral-300'
@@ -804,7 +930,10 @@ export function StrengthHub({
                     </label>
                     <input
                       type="number"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
                       value={calcReps}
+                      onFocus={e => e.target.select()}
                       onChange={e => setCalcReps(Number(e.target.value) || 1)}
                       min="1"
                       max="30"

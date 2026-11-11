@@ -109,10 +109,8 @@ export const SPORTS_REGISTRY: Record<SportType, SportInfo> = {
 export interface UserProfile {
   id: string;
   name: string;
-  coins: number;
   streakDays: number;
   lastWorkoutDate: string;
-  lastCoinDate: string;
-  isPro: boolean;
-  unlockedItems: string[];
 }
+
+

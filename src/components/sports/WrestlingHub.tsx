@@ -8,7 +8,6 @@ interface WrestlingHubProps {
   getButtonStyles: () => string;
   mutedTextClass: string;
   onFinishWorkout: (reps: number) => void;
-  canGetCoinsToday: boolean;
 }
 
 interface FighterScore {
@@ -31,8 +30,7 @@ export function WrestlingHub({
   getContainerStyles,
   getButtonStyles,
   mutedTextClass,
-  onFinishWorkout,
-  canGetCoinsToday
+  onFinishWorkout
 }: WrestlingHubProps) {
   const [selectedDurationId, setSelectedDurationId] = useState('blue_belt');
   const activePreset = DURATION_PRESETS.find(p => p.id === selectedDurationId) || DURATION_PRESETS[1];
@@ -420,7 +418,7 @@ export function WrestlingHub({
           onClick={() => onFinishWorkout(roundNumber * 25)}
           className={`w-full sm:w-auto px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white font-bold text-base flex items-center justify-center gap-2 shadow-lg ${getButtonStyles()}`}
         >
-          Завершить борьбу {canGetCoinsToday && '(+5 🪙)'}
+          Завершить борьбу
         </button>
       </div>
     </div>

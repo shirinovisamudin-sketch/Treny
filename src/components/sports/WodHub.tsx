@@ -8,7 +8,6 @@ interface WodHubProps {
   getButtonStyles: () => string;
   mutedTextClass: string;
   onFinishWorkout: (reps: number) => void;
-  canGetCoinsToday: boolean;
 }
 
 type WodMode = 'emom' | 'amrap' | 'fortime' | 'tabata';
@@ -18,8 +17,7 @@ export function WodHub({
   getContainerStyles,
   getButtonStyles,
   mutedTextClass,
-  onFinishWorkout,
-  canGetCoinsToday
+  onFinishWorkout
 }: WodHubProps) {
   const [mode, setMode] = useState<WodMode>('amrap');
 
@@ -249,7 +247,7 @@ export function WodHub({
           onClick={() => onFinishWorkout(40)}
           className={`w-full sm:w-auto px-6 py-3 bg-amber-500 hover:bg-amber-600 text-white font-bold text-base flex items-center justify-center gap-2 shadow-lg ${getButtonStyles()}`}
         >
-          Завершить WOD {canGetCoinsToday && '(+5 🪙)'}
+          Завершить WOD
         </button>
       </div>
     </div>

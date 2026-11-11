@@ -8,7 +8,6 @@ interface RunningHubProps {
   getButtonStyles: () => string;
   mutedTextClass: string;
   onFinishWorkout: (reps: number) => void;
-  canGetCoinsToday: boolean;
 }
 
 const DISTANCE_PRESETS = [
@@ -23,8 +22,7 @@ export function RunningHub({
   getContainerStyles,
   getButtonStyles,
   mutedTextClass,
-  onFinishWorkout,
-  canGetCoinsToday
+  onFinishWorkout
 }: RunningHubProps) {
   const [activeTab, setActiveTab] = useState<'cadence' | 'pace' | 'interval'>('cadence');
 
@@ -434,7 +432,7 @@ export function RunningHub({
           onClick={() => onFinishWorkout(50)}
           className={`w-full sm:w-auto px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-base flex items-center justify-center gap-2 shadow-lg ${getButtonStyles()}`}
         >
-          Завершить бег {canGetCoinsToday && '(+5 🪙)'}
+          Завершить бег
         </button>
       </div>
     </div>
