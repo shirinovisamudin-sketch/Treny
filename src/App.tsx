@@ -149,9 +149,20 @@ export default function App() {
 
   // Settings State
   const [theme, setTheme] = useState<'light' | 'dark' | 'system'>('system');
-  const [styleMode, setStyleMode] = useState<'adult' | 'kids' | 'retro' | 'slime'>('adult');
+  const [styleMode, setStyleMode] = useState<'adult' | 'kids' | 'retro' | 'slime'>(() => {
+    const saved = localStorage.getItem('treny_style_mode');
+    if (saved === 'adult' || saved === 'kids' || saved === 'retro' || saved === 'slime') {
+      return saved;
+    }
+    return 'adult';
+  });
   const [deviceType, setDeviceType] = useState<'computer' | 'tablet' | 'phone'>('phone');
   const [resolvedTheme, setResolvedTheme] = useState<'light' | 'dark'>('light');
+
+  useEffect(() => {
+    document.body.classList.remove('pixel-mode');
+    localStorage.setItem('treny_style_mode', styleMode);
+  }, [styleMode]);
 
   // Colors & FX
   const [hsv, setHsv] = useState({ h: 24, s: 100, v: 100 });
@@ -308,7 +319,7 @@ export default function App() {
     return styles;
   };
 
-  const fontClass = styleMode === 'retro' ? 'font-mono' : styleMode === 'slime' ? 'font-sans' : 'font-sans';
+  const fontClass = styleMode === 'retro' ? 'font-mono' : 'font-sans';
   const rootClass = `${isDark ? 'bg-neutral-900 text-neutral-100' : 'bg-neutral-50 text-neutral-900'} min-h-screen p-3 md:p-6 transition-colors duration-300 ${fontClass}`;
   const mutedTextClass = isDark ? 'text-neutral-400' : 'text-neutral-500';
 
@@ -758,6 +769,7 @@ export default function App() {
           getContainerStyles={getContainerStyles}
           getButtonStyles={getButtonStyles}
           mutedTextClass={mutedTextClass}
+          currentUserId={localProfile?.id}
         />
 
         {/* Sports Pain & Solutions Detailed Modal */}
